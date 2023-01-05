@@ -3,7 +3,8 @@
 # Go-C2 v0.1
 
 ## What is this? 
-This is a fairly small tool I wrote that acts as a sort of C2 and an Agent for that C2, additionally the Agent can act as a proxy server when needed.
+This is a fairly small tool I wrote that is basically a C2 and an Agent for that C2, additionally the Agent can act as a proxy server when needed.
+*Fair warning, the proxy doesn't exactly work that well so take that into account*
 
 ## Why? 
 Because I was annoyed that metasploit's meterpreters don't have a port scanning option so I implemented one myself
