@@ -11,7 +11,7 @@ go get -v github.com/akamensky/argparse
 go get -v github.com/armon/go-socks5
 
 echo "Running make command..."
-make Makefile build
+make 
 
 
 

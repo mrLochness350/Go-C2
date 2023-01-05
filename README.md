@@ -1,6 +1,6 @@
 
 
-# Go-C2
+# Go-C2 v0.1
 
 ## What is this? 
 This is a fairly small tool I wrote that acts as a sort of C2 and an Agent for that C2, additionally the Agent can act as a proxy server when needed.
