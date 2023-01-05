@@ -15,7 +15,7 @@ Because I was annoyed that metasploit's meterpreters don't have a port scanning 
 
 ## Installing:
 ```sh
-git clone 
+git clone https://github.com/mrLochness350/Go-C2.git
 cd Go-C2
 chmod +x install.sh
 ./install.sh
