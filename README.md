@@ -53,3 +53,4 @@ $ ./C2_linux_amd64 -c <Agent Address> -p <Agent Port>
 * Add option to drop Agent via exploits
 * Make the cli more interactive
 * Execute commands on an Agent from the cli 
+* Add Payload Compilation code
