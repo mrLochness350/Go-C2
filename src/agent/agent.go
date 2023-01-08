@@ -13,7 +13,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"syscall"
 	"time"
 
 	"github.com/akamensky/argparse"
@@ -43,7 +42,7 @@ type SessionIdentifier struct {
 	OS         string
 	Username   string
 	OsVersion  string
-	any        any
+	any1       any
 	Hostname   string
 	MACAddress []string
 }
@@ -296,11 +295,13 @@ func getAgentData() {
 		version := "NOT IMPLEMENTED YET"
 		info.OsVersion = version
 	} else if runtime.GOOS == "linux" {
-		var sysinfo syscall.Utsname
-		if err := syscall.Uname(&sysinfo); err != nil {
-			fmt.Println(err)
-		}
-		version := fmt.Sprintf("Unix %s %s %s %s %s\n", byteToStr(sysinfo.Sysname[:]), byteToStr(sysinfo.Nodename[:]), byteToStr(sysinfo.Release[:]), byteToStr(sysinfo.Version[:]), byteToStr(sysinfo.Machine[:]))
+		// var sysinfo syscall.Utsname
+		// if err := syscall.Uname(&sysinfo); err != nil {
+		// 	fmt.Println(err)
+		// }
+		// version := fmt.Sprintf("Unix %s %s %s %s %s\n", byteToStr(sysinfo.Sysname[:]), byteToStr(sysinfo.Nodename[:]), byteToStr(sysinfo.Release[:]), byteToStr(sysinfo.Version[:]), byteToStr(sysinfo.Machine[:]))
+		// info.OsVersion = version
+		version := "NOT IMPLEMENTED YET"
 		info.OsVersion = version
 	}
 	ser, err := json.Marshal(info)
@@ -416,19 +417,18 @@ func main() {
 }
 
 func Connect(client *string, port *int) {
-	target := fmt.Sprintf("%s:%d", *client, *port)
+	target := fmt.Sprintf(":%d", *port)
 	conf.Host = *client
 	conf.Port = *port
 
 	ln, err := net.Listen("tcp", target)
 	if err != nil {
-		conf.Connection.Write([]byte(err.Error()))
+		fmt.Print(err)
 	}
-	defer ln.Close()
 	for {
 		conn, err := ln.Accept()
 		if err != nil {
-			conf.Connection.Write([]byte(err.Error()))
+			fmt.Println(err)
 			continue
 		}
 		conf.Connection = conn
@@ -436,5 +436,7 @@ func Connect(client *string, port *int) {
 		fmt.Println("listening.....")
 		fmt.Println("------------------------")
 		go HandleConnection(conn)
+		defer ln.Close()
 	}
+
 }
