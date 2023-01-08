@@ -316,7 +316,7 @@ func main() {
 	if *verbosity {
 		verbose = true
 	}
-	target := fmt.Sprintf("%s:%d", *client, *port)
+	target := fmt.Sprintf(":%d", *port)
 	conf.Host = *client
 	conf.Port = *port
 
