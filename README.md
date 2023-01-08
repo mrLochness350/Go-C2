@@ -46,9 +46,11 @@ $ ./C2_linux_amd64 -c <Agent Address> -p <Agent Port>
 * Make the connection a reverse shell
 * Add option to drop into shell and not only execute code via the `shell` argument
 * Add option to host the C2 from the Agent as a pivot-point
+* Add persistence option
 
 ### C2
 * Add multiple host listeners
 * Add option to drop Agent via exploits
 * Make the cli more interactive
 * Execute commands on an Agent from the cli 
+* ~~Add Logging function~~

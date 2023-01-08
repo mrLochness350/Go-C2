@@ -1,1 +1,3 @@
 bin/
+logs/
+sessions.json

