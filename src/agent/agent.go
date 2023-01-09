@@ -329,6 +329,7 @@ func HandleConnection(conn net.Conn) {
 		if len(parts) == 0 {
 			continue
 		}
+		fmt.Println(parts[0])
 		switch parts[0] {
 		case "portscan":
 			if len(parts) == 1 {

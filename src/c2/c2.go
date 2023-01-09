@@ -5,10 +5,10 @@ import (
 	"crypto/rand"
 	"encoding/json"
 	"fmt"
+	"io/fs"
 	"net"
 	"os"
 	utils "scanner/src/c2/utils"
-	"strings"
 	"time"
 
 	"github.com/akamensky/argparse"
@@ -55,6 +55,8 @@ func main() {
 	timeout := parser.Int("t", "timeout", &argparse.Options{Required: false, Help: "sets the timeout for disconnection", Default: 3})
 	session := parser.String("s", "session", &argparse.Options{Required: false, Help: "session to execute commands on"})
 	cmd := parser.String("", "command", &argparse.Options{Required: false, Help: "command to execute on session"})
+	list := parser.Flag("l", "list", &argparse.Options{Required: false, Help: "list all active sessions"})
+	interactive := parser.Flag("i", "interactive", &argparse.Options{Required: false, Help: "list all active sessions"})
 
 	err := parser.Parse(os.Args)
 	if err != nil {
@@ -67,18 +69,17 @@ func main() {
 	if *verbosity {
 		verbose = true
 	}
-
-	if cmd != nil {
-		ExecuteFromCli(*session, *cmd)
-	} else {
+	if *interactive {
 		CreateSession(client, port, timeout)
 	}
-	file, err := os.Create("sessions.json")
-	if err != nil {
-		fmt.Println(err)
+
+	if *session != "" {
+		ExecuteFromCli(*cmd, *session)
 	}
-	defer file.Close()
-	defer WriteConnections(sessions)
+	if *list {
+		ListSessions()
+	}
+	//defer WriteConnections(sessions)
 }
 
 func CreateSession(client *string, port *int, timeout *int) {
@@ -91,9 +92,16 @@ func CreateSession(client *string, port *int, timeout *int) {
 	logger.RelatedSession = *sesh
 	logger.CreateLogFile(sesh.Ip_Addr)
 	sessions = append(sessions, *sesh)
+	ser, err1 := json.Marshal(sesh)
+	if err1 != nil {
+		fmt.Println(err1)
+	}
+	err := os.WriteFile("sessions.json", ser, fs.ModeAppend)
+	if err != nil {
+		fmt.Println(err)
+	}
 	HandleConnection(conn, &logger)
 }
-
 func Connect(client string, port int, timeout int) net.Conn {
 	target := fmt.Sprintf("%s:%d", client, port)
 	dialer := &net.Dialer{
@@ -116,22 +124,50 @@ func DoesSessionExist(sessionID string) (bool, string, int) {
 	}
 
 	ret_session := utils.Session{}
-	if strings.Contains(string(data), sessionID) {
-		err := json.Unmarshal(data, &ret_session)
-		if err != nil {
-			fmt.Println(err)
-		}
-		fmt.Println(ret_session)
+	var s utils.Session
+	err = json.Unmarshal(data, &s)
+	if err != nil {
+		fmt.Println(err)
+	}
+	if s.Session_UID == sessionID {
+		ret_session = s
 		return true, ret_session.Ip_Addr, ret_session.Port
 	} else {
 		return false, "", 0
 	}
 }
 
+func ListSessions() {
+	file, err := os.Open("sessions.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+	fstats, err := os.Stat("sessions.json")
+	if err != nil {
+		fmt.Println(err)
+	}
+	defer file.Close()
+	scanner := bufio.NewScanner(file)
+	if fstats.Size() == 0 {
+		fmt.Println("[-] No sessions found")
+	} else {
+		for scanner.Scan() {
+			var session = utils.Session{}
+			err := json.Unmarshal(scanner.Bytes(), &session)
+			if err != nil {
+				fmt.Println(err)
+			}
+			fmt.Printf("[+] Session ID: %s | IsActive: %v\n", session.Session_UID, session.IsActive)
+		}
+	}
+
+}
+
 func ExecuteFromCli(cmd string, sessionID string) {
 	exists, ip, port := DoesSessionExist(sessionID)
 	if exists {
 		conn := Connect(ip, port, 3)
+		fmt.Println(cmd)
 		conn.Write([]byte(cmd))
 		buf := make([]byte, (4086 * 2))
 		n, err := conn.Read(buf)
@@ -146,32 +182,34 @@ func ExecuteFromCli(cmd string, sessionID string) {
 
 func HandleConnection(conn net.Conn, logger *utils.Log) {
 	verbose := true
-	shell_pointer := fmt.Sprintf("(%s)> ", conn.RemoteAddr().String())
-	defer conn.Close()
-	for {
-		fmt.Print(shell_pointer)
-		scanner := bufio.NewScanner(os.Stdin)
-		if scanner.Scan() {
+	if conn != nil {
+		shell_pointer := fmt.Sprintf("(%s)> ", conn.RemoteAddr().String())
+		defer conn.Close()
+		for {
 			fmt.Print(shell_pointer)
-			line := scanner.Text()
-			err := logger.WriteLog(line)
-			if err != nil {
-				fmt.Println(err)
+			scanner := bufio.NewScanner(os.Stdin)
+			if scanner.Scan() {
+				fmt.Print(shell_pointer)
+				line := scanner.Text()
+				err := logger.WriteLog(line)
+				if err != nil {
+					fmt.Println(err)
+				}
+				if line == "exit" {
+					break
+				}
+				conn.Write([]byte(line + "\n"))
 			}
-			if line == "exit" {
+			buf := make([]byte, (4086 * 2))
+			n, err := conn.Read(buf)
+			if err != nil {
+				if verbose {
+					fmt.Println(err)
+				}
 				break
 			}
-			conn.Write([]byte(line + "\n"))
-
+			fmt.Print(string(buf[:n]))
 		}
-		buf := make([]byte, (4086 * 2))
-		n, err := conn.Read(buf)
-		if err != nil {
-			if verbose {
-				fmt.Println(err)
-			}
-			break
-		}
-		fmt.Print(string(buf[:n]))
 	}
+
 }
