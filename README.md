@@ -38,12 +38,12 @@ $ ./C2_linux_amd64 -c <Agent Address> -p <Agent Port>
 ### General:
 * Encrypt C2/Agent traffic
 * Add 2-way authentication to avoid snooping
+* ~~Make the connection a reverse shell~~
 
 ### Agent
 * Fix proxy problems
 * Add extra verbosity
 * Add background option
-* Make the connection a reverse shell
 * Add option to drop into shell and not only execute code via the `shell` argument
 * Add option to host the C2 from the Agent as a pivot-point
 * Add persistence option

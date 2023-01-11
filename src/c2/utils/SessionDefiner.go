@@ -1,10 +1,11 @@
 package utils
 
 type Session struct {
-	Session_UID string
-	Ip_Addr     string
-	Port        int
-	IsActive    bool `default:"true"`
+	Session_UID       string
+	Ip_Addr           string
+	Port              int
+	IsActive          bool `default:"true"`
+	TimeSinceLastPing int
 }
 
 type SessionIdentifier struct {
