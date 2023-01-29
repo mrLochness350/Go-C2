@@ -69,6 +69,8 @@ func ExecuteFromCli(cmd string, sessionID string) {
 			}
 		}
 		fmt.Print(string(buf[:n]))
+	} else {
+		fmt.Println("Session does not exist")
 	}
 }
 func Connect(client string, port int, timeout int) net.Conn {
@@ -78,7 +80,6 @@ func Connect(client string, port int, timeout int) net.Conn {
 	}
 	conn, err := dialer.Dial("tcp", target)
 	if err != nil {
-		fmt.Println("Host is either down or disconnected")
 		if Verbose {
 			fmt.Printf("Error: %s\n", err.Error())
 		}

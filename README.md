@@ -36,8 +36,7 @@ $ ./C2_linux_amd64 -c <Agent Address> -p <Agent Port>
 # TODO:
 
 ### General:
-* Encrypt C2/Agent traffic
-* Add 2-way authentication to avoid snooping
+* Encrypt C2/Agent traffic / Add 2-way authentication to avoid snooping
 * ~~Make the connection a reverse shell~~
 
 ### Agent

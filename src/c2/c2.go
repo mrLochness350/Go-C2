@@ -31,18 +31,18 @@ func GenerateSessionID() string {
 var sessions []utils.Session
 
 func WriteConnections(sessions []utils.Session) {
-	file, err := os.Create("sessions.json")
-	if err != nil {
-		fmt.Println(err)
-	}
+
 	for _, session := range sessions {
 		ser, err := json.Marshal(session)
 		if err != nil {
 			fmt.Println(err)
 		}
-		file.Write(ser)
+
+		err2 := os.WriteFile("sessions.json", ser, os.ModeAppend)
+		if err2 != nil {
+			fmt.Println(err)
+		}
 	}
-	defer file.Close()
 }
 
 func main() {

