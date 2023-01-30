@@ -1,13 +1,13 @@
 package utils
 
 import (
-	"bufio"
 	"fmt"
 	"log"
 	"net"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/takama/daemon"
 )
@@ -36,21 +36,49 @@ func accept(listener net.Listener, listen chan<- net.Conn) {
 }
 
 func handleConn(conn net.Conn) {
+	buf := make([]byte, 8192)
 	for {
-		resp, err := bufio.NewReader(conn).ReadString('\n')
+		_, err := conn.Read(buf)
 		if err != nil {
 			fmt.Println(err)
+		}
+		// resp, err := bufio.NewReader(conn).ReadString('\n')
+		// if err != nil {
+		// 	fmt.Println(err)
+		// 	break
+		// }
+		cmd := string(buf)
+		// fmt.Println(cmd)
+		if cmd == "stop" {
 			break
 		}
-		cmd := string(resp)
-		fmt.Println(cmd)
-		go HandleConnection(conn)
+		//go HandleConnection(conn)
 	}
 
 }
 
 type Service struct {
 	daemon.Daemon
+}
+
+func SendLifeNotif() {
+	ticker := time.NewTicker(2 * time.Second)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ticker.C:
+			go func() {
+				conn, err := net.Dial("tcp", Conf.Connection.RemoteAddr().String())
+				if err != nil {
+					fmt.Println(err)
+					return
+				}
+				defer conn.Close()
+				fmt.Fprintln(conn, "RDY")
+			}()
+		}
+	}
 }
 
 func (service *Service) DaemonManage(cmd string) (string, error) {
